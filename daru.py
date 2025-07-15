@@ -6,14 +6,13 @@ import random
 ACCESS_TOKEN = 'YOUR_ACCESS_TOKEN_HERE'
 PHONE_NUMBER_ID = 'YOUR_PHONE_NUMBER_ID_HERE'
 
-# 📞 نمبرز کی لسٹ
+# 📞 
 numbers = [
-    '923001234567',
-    '923451234567',
-    '923111234567'
+    '',
+    '',
+    ''
 ]
-
-# 🎨 Daru لوگو اسٹائلز
+# 🎨 Daru 
 logos = [
     "★彡[𝐃𝐀𝐑𝐔]彡★",
     "𓆩𝐃𝐀𝐑𝐔𓆪",
