@@ -1,10 +1,11 @@
-import 
-  makeWASocket, {
-  useMultiFileAuthState,
-  DisconnectReason,
-  delay,
-  fetchLatestBaileysVersion,
+import { 
+  makeWASocket, 
+  useMultiFileAuthState, 
+  DisconnectReason, 
+  delay, 
+  fetchLatestBaileysVersion 
 } from '@whiskeysockets/baileys';
+
 import Pino from 'pino';
 import readline from 'readline';
 import fs from 'fs';
