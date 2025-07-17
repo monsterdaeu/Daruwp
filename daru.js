@@ -1,7 +1,16 @@
-import makeWASocket, { useMultiFileAuthState, DisconnectReason, delay } from '@whiskeysockets/baileys';
+// daru.mjs
+import { makeWASocket, useMultiFileAuthState, DisconnectReason, delay } from '@whiskeysockets/baileys';
 import fs from 'fs';
-import readline from 'readline';
 import pino from 'pino';
+import readline from 'readline';
+
+console.clear();
+console.log(`\x1b[32m
+╔═══════════════════════════╗
+║      WHATSAPP BOT 🚀      ║
+║   By: Aryano (Termux)     ║
+╚═══════════════════════════╝
+\x1b[0m`);
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -9,17 +18,6 @@ const rl = readline.createInterface({
 });
 
 const ask = (q) => new Promise((res) => rl.question(q, res));
-
-// 🎨 Logo
-console.log(`
-\x1b[1;35m
-██████╗  █████╗ ██████╗ ██╗   ██╗    ██╗    ██╗██████╗ 
-██╔══██╗██╔══██╗██╔══██╗╚██╗ ██╔╝    ██║    ██║██╔══██╗
-██║  ██║███████║██║  ██║ ╚████╔╝     ██║ █╗ ██║██████╔╝
-██║  ██║██╔══██║██║  ██║  ╚██╔╝      ██║███╗██║██╔═══╝ 
-██████╔╝██║  ██║██████╔╝   ██║       ╚███╔███╔╝██║     
-╚═════╝ ╚═╝  ╚═╝╚═════╝    ╚═╝        ╚══╝╚══╝ ╚═╝     
-\n\x1b[0m`);
 
 const runBot = async () => {
   const { state, saveCreds } = await useMultiFileAuthState('./auth_info');
@@ -33,41 +31,39 @@ const runBot = async () => {
 
   sock.ev.on('connection.update', async ({ connection, lastDisconnect }) => {
     if (connection === 'open') {
-      console.log('✅ Logged in successfully.\n');
+      console.log("✅ Login successful!");
 
-      const msgFile = await ask('📄 Enter message file path (e.g., message.txt): ');
-      const numberFile = await ask('📱 Enter numbers/groups file (e.g., targets.txt): ');
-      const delaySec = parseInt(await ask('⏱️ Enter delay (sec): '), 10);
+      const messageFile = await ask("📨 Message file path (e.g. message.txt): ");
+      const targetsFile = await ask("🎯 Targets file path (e.g. targets.txt): ");
+      const delaySec = parseInt(await ask("⏱️ Delay (seconds): "), 10);
       rl.close();
 
-      const message = fs.readFileSync(msgFile, 'utf-8').trim();
-      const targets = fs
-        .readFileSync(numberFile, 'utf-8')
+      const message = fs.readFileSync(messageFile, 'utf-8').trim();
+      const targets = fs.readFileSync(targetsFile, 'utf-8')
         .split('\n')
-        .map((n) => n.trim())
-        .filter((n) => n);
+        .map(n => n.trim())
+        .filter(n => n);
 
       for (const target of targets) {
+        const jid = target.includes('@g.us') ? target : target + "@s.whatsapp.net";
         try {
-          let jid = target.includes('@g.us') ? target : `${target}@s.whatsapp.net`;
           await sock.sendMessage(jid, { text: message });
-          console.log(`📨 Sent to: ${target}`);
+          console.log(`✅ Sent to: ${target}`);
           await delay(delaySec * 1000);
         } catch (err) {
           console.log(`❌ Failed to send to ${target}: ${err.message}`);
         }
       }
 
-      console.log('✅ All messages processed.');
+      console.log("✅ All messages sent. Exiting.");
       process.exit(0);
-    } else if (
-      connection === 'close' &&
-      lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
-    ) {
-      console.log('⚠️ Reconnecting...');
+    } else if (connection === 'close' && lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) {
+      console.log("🔁 Reconnecting...");
       runBot();
     }
   });
 };
 
-runBot().catch((err) => console.error('Error:', err));
+runBot().catch(err => {
+  console.error("❌ Error:", err);
+});
