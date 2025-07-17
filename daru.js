@@ -1,5 +1,6 @@
 // daru.mjs
 import { makeWASocket, useMultiFileAuthState, DisconnectReason, delay } from '@whiskeysockets/baileys';
+import qrcode from 'qrcode-terminal';
 import fs from 'fs';
 import pino from 'pino';
 import readline from 'readline';
@@ -23,13 +24,17 @@ const runBot = async () => {
   const { state, saveCreds } = await useMultiFileAuthState('./auth_info');
   const sock = makeWASocket({
     logger: pino({ level: 'silent' }),
-    printQRInTerminal: true,
     auth: state,
   });
 
   sock.ev.on('creds.update', saveCreds);
 
-  sock.ev.on('connection.update', async ({ connection, lastDisconnect }) => {
+  sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
+    if (qr) {
+      console.log("📲 Scan the QR code below to login:\n");
+      qrcode.generate(qr, { small: true });
+    }
+
     if (connection === 'open') {
       console.log("✅ Login successful!");
 
@@ -51,19 +56,4 @@ const runBot = async () => {
           console.log(`✅ Sent to: ${target}`);
           await delay(delaySec * 1000);
         } catch (err) {
-          console.log(`❌ Failed to send to ${target}: ${err.message}`);
-        }
-      }
-
-      console.log("✅ All messages sent. Exiting.");
-      process.exit(0);
-    } else if (connection === 'close' && lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) {
-      console.log("🔁 Reconnecting...");
-      runBot();
-    }
-  });
-};
-
-runBot().catch(err => {
-  console.error("❌ Error:", err);
-});
+          console
