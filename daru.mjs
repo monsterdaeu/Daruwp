@@ -1,4 +1,3 @@
-// daru.mjs
 import { makeWASocket, useMultiFileAuthState, DisconnectReason, delay } from '@whiskeysockets/baileys';
 import qrcode from 'qrcode-terminal';
 import fs from 'fs';
@@ -56,4 +55,19 @@ const runBot = async () => {
           console.log(`✅ Sent to: ${target}`);
           await delay(delaySec * 1000);
         } catch (err) {
-          console
+          console.log(`❌ Failed to send to ${target}: ${err.message}`);
+        }
+      }
+
+      console.log("✅ All messages sent. Exiting.");
+      process.exit(0);
+    } else if (connection === 'close' && lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) {
+      console.log("🔁 Reconnecting...");
+      runBot();
+    }
+  });
+};
+
+runBot().catch(err => {
+  console.error("❌ Error:", err);
+});
