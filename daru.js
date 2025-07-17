@@ -1,4 +1,6 @@
-import { makeWASocket, useMultiFileAuthState, DisconnectReason, delay } from "@whiskeysockets/baileys";
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, delay } = require('@whiskeysockets/baileys');
+const fs = require('fs');
+const P = require('pino');
 import fs from "fs";
 import readline from "readline";
 import pino from "pino";
