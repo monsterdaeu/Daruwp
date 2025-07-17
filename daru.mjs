@@ -28,7 +28,7 @@ function printLogo() {
 ██████╔╝██║░░██║██║░░██║╚██████╔╝
 ╚═════╝░╚═╝░░╚═╝╚═╝░░╚═╝░╚═════╝░   
 \x1b[0m
-\x1b[1;33m=====  WhatsApp by Daru  =====\x1b[0m
+\x1b[1;33m=====  WhatsApp tool by Daru Multi numbers+groups=====\x1b[0m
 `);
 }
 
