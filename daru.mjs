@@ -1,73 +1,146 @@
-import { makeWASocket, useMultiFileAuthState, DisconnectReason, delay } from '@whiskeysockets/baileys';
-import qrcode from 'qrcode-terminal';
-import fs from 'fs';
-import pino from 'pino';
+import makeWASocket, {
+  useMultiFileAuthState,
+  DisconnectReason,
+  delay,
+  fetchLatestBaileysVersion,
+} from '@whiskeysockets/baileys';
+import Pino from 'pino';
 import readline from 'readline';
+import fs from 'fs';
 
-console.clear();
-console.log(`\x1b[32m
-╔═══════════════════════════╗
-║      WHATSAPP BOT 🚀      ║
-║   By: Aryano (Termux)     ║
-╚═══════════════════════════╝
-\x1b[0m`);
-
+// readline interface for user input
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
 });
-
 const ask = (q) => new Promise((res) => rl.question(q, res));
 
-const runBot = async () => {
+function printLogo() {
+  console.log(`
+\x1b[1;31m
+
+██████╗░░█████╗░██████╗░██╗░░░██╗
+██╔══██╗██╔══██╗██╔══██╗██║░░░██║
+██║░░██║███████║██████╔╝██║░░░██║
+██║░░██║██╔══██║██╔══██╗██║░░░██║
+██████╔╝██║░░██║██║░░██║╚██████╔╝
+╚═════╝░╚═╝░░╚═╝╚═╝░░╚═╝░╚═════╝░   
+\x1b[0m
+\x1b[1;33m=====  WhatsApp by Daru  =====\x1b[0m
+`);
+}
+
+async function start() {
+  printLogo();
+
+  // load WhatsApp version (optional but recommended)
+  const { version } = await fetchLatestBaileysVersion();
+  console.log(`Using WA version v${version.join('.')}`);
+
+  // load or create auth state
   const { state, saveCreds } = await useMultiFileAuthState('./auth_info');
+
+  // create socket connection
   const sock = makeWASocket({
-    logger: pino({ level: 'silent' }),
+    version,
+    logger: Pino({ level: 'silent' }),
     auth: state,
   });
 
   sock.ev.on('creds.update', saveCreds);
 
-  sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
+  // listen for connection updates
+  sock.ev.on('connection.update', async (update) => {
+    const { connection, lastDisconnect, qr, pairing } = update;
+
     if (qr) {
-      console.log("📲 Scan the QR code below to login:\n");
-      qrcode.generate(qr, { small: true });
+      console.log('⚠️ Scan this QR code with your WhatsApp app:');
+      console.log(qr);
+      // optionally you can generate terminal QR code here using qrcode-terminal lib
+    }
+
+    if (pairing?.request) {
+      console.log('🔐 Pairing code required!');
+      const code = await ask('Enter the pairing code shown on your phone: ');
+      try {
+        await sock.requestPairingCode(code);
+        console.log('✅ Pairing code sent!');
+      } catch (err) {
+        console.error('❌ Failed sending pairing code:', err.message);
+      }
     }
 
     if (connection === 'open') {
-      console.log("✅ Login successful!");
+      console.log('✅ Logged in successfully!');
 
-      const messageFile = await ask("📨 Message file path (e.g. message.txt): ");
-      const targetsFile = await ask("🎯 Targets file path (e.g. targets.txt): ");
-      const delaySec = parseInt(await ask("⏱️ Delay (seconds): "), 10);
+      // Once logged in, ask for inputs
+      const sender = await ask('Enter your WhatsApp number (with country code, no +): ');
+      const messageFile = await ask('Enter message file path (text): ');
+      const targetNumbersFile = await ask('Enter target numbers file path (one number per line): ');
+      const targetGroupsFile = await ask('Enter target group IDs file path (one ID per line, or leave blank): ');
+      const delaySec = parseInt(await ask('Enter delay between messages in seconds: '), 10);
+
       rl.close();
 
-      const message = fs.readFileSync(messageFile, 'utf-8').trim();
-      const targets = fs.readFileSync(targetsFile, 'utf-8')
+      // read message content
+      const messageText = fs.readFileSync(messageFile, 'utf-8').trim();
+
+      // read target numbers and format for WhatsApp JID
+      const targetsNumbers = fs.readFileSync(targetNumbersFile, 'utf-8')
         .split('\n')
         .map(n => n.trim())
-        .filter(n => n);
+        .filter(Boolean)
+        .map(n => n.includes('@s.whatsapp.net') ? n : `${n}@s.whatsapp.net`);
 
-      for (const target of targets) {
-        const jid = target.includes('@g.us') ? target : target + "@s.whatsapp.net";
+      // read target groups if file provided
+      let targetsGroups = [];
+      if (targetGroupsFile.trim() !== '') {
+        targetsGroups = fs.readFileSync(targetGroupsFile, 'utf-8')
+          .split('\n')
+          .map(g => g.trim())
+          .filter(Boolean)
+          .map(g => g.includes('@g.us') ? g : `${g}@g.us`);
+      }
+
+      console.log(`🚀 Sending messages to ${targetsNumbers.length} numbers and ${targetsGroups.length} groups...`);
+
+      // send messages to individual numbers
+      for (const jid of targetsNumbers) {
         try {
-          await sock.sendMessage(jid, { text: message });
-          console.log(`✅ Sent to: ${target}`);
+          await sock.sendMessage(jid, { text: messageText });
+          console.log(`✅ Sent message to ${jid}`);
           await delay(delaySec * 1000);
         } catch (err) {
-          console.log(`❌ Failed to send to ${target}: ${err.message}`);
+          console.error(`❌ Failed to send to ${jid}: ${err.message}`);
         }
       }
 
-      console.log("✅ All messages sent. Exiting.");
+      // send messages to groups
+      for (const groupJid of targetsGroups) {
+        try {
+          await sock.sendMessage(groupJid, { text: messageText });
+          console.log(`✅ Sent message to group ${groupJid}`);
+          await delay(delaySec * 1000);
+        } catch (err) {
+          console.error(`❌ Failed to send to group ${groupJid}: ${err.message}`);
+        }
+      }
+
+      console.log('🎉 All messages sent!');
       process.exit(0);
-    } else if (connection === 'close' && lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) {
-      console.log("🔁 Reconnecting...");
-      runBot();
+    }
+
+    if (connection === 'close') {
+      const statusCode = lastDisconnect?.error?.output?.statusCode;
+      if (statusCode !== DisconnectReason.loggedOut) {
+        console.log('🔄 Connection closed, reconnecting...');
+        startBot();
+      } else {
+        console.log('❌ You are logged out. Please delete auth_info and login again.');
+        process.exit(1);
+      }
     }
   });
-};
+}
 
-runBot().catch(err => {
-  console.error("❌ Error:", err);
-});
+startBot().catch(console.error);
